@@ -1,5 +1,5 @@
-hash: 7d71c0e7da4d575e24f05753d4ef638025e801e3e582f651f258fed77ef45cc9
-updated: 2019-02-28T03:12:29.663954056-08:00
+hash: a3753ad861ddea0a4527c7030a4498e5b38713b61a306dbc23a93dbf0be56704
+updated: 2019-03-12T18:52:33.211131217-07:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: 75cd24fc2f2c2a2088577d12123ddee5f54e0675
@@ -34,8 +34,6 @@ imports:
   subpackages:
   - apiextensions/v1beta1
   - meta
-- name: github.com/appscode/mergo
-  version: 9f23e2d6bd2a77f959b2bf6acdbefd708a83a4a4
 - name: github.com/armon/go-radix
   version: 1a2de0c21c94309923825da3df33a4381872c795
 - name: github.com/aws/aws-sdk-go
@@ -207,19 +205,19 @@ imports:
 - name: github.com/emicklei/go-restful-swagger12
   version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
-  version: afac545df32f2287a079e2dfb7ba2745a643747e
+  version: 5858425f75500d40c52783dce87d085a483ce135
 - name: github.com/fatih/structs
   version: 878a968ab22548362a09bdb3322f98b00f470d46
 - name: github.com/go-ini/ini
   version: a9da9309fb4822643ceebb765f80025c35ac19a1
 - name: github.com/go-openapi/jsonpointer
-  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
+  version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+  version: 8483a886a90412cd6858df4ea3483dce9c8e35a3
 - name: github.com/go-openapi/spec
-  version: 1de3e0542de65ad8d75452a595886fdd0befb363
+  version: 5bae59e25b21498baea7f9d46e9c147ec106a42e
 - name: github.com/go-openapi/swag
-  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
+  version: 5899d5c5e619fda5fa86e14795a835f473ca284c
 - name: github.com/gogo/protobuf
   version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
   subpackages:
@@ -244,14 +242,15 @@ imports:
   - ptypes/struct
   - ptypes/timestamp
 - name: github.com/golang/snappy
-  version: 2a8bb927dd31d8daada140a5d09578521ce5c36a
+  version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/go-cmp
-  version: 3af367b6b30c263d47e8895973edcca9a49cf029
+  version: 6f77996f0c42f7b84e5a2b252227263f93432e9b
   subpackages:
   - cmp
   - cmp/internal/diff
+  - cmp/internal/flags
   - cmp/internal/function
   - cmp/internal/value
 - name: github.com/google/gofuzz
@@ -286,7 +285,7 @@ imports:
 - name: github.com/hashicorp/go-cleanhttp
   version: e8ab9daed8d1ddd2d3c4efba338fe2eeae2e4f18
 - name: github.com/hashicorp/go-hclog
-  version: 2f91710694ab9472cc9e085a9c74565082063354
+  version: 6907afbebd2eef854f0be9194eb79b0ba75d7b29
 - name: github.com/hashicorp/go-immutable-radix
   version: 27df80928bb34bb1b0d6d0e01b9e679902e7a6b5
 - name: github.com/hashicorp/go-multierror
@@ -300,7 +299,7 @@ imports:
 - name: github.com/hashicorp/go-rootcerts
   version: 63503fb4e1eca22f9ae0f90b49c5d5538a0e87eb
 - name: github.com/hashicorp/go-sockaddr
-  version: 3aed17b5ee41761cc2b04f2a94c7107d428967e5
+  version: c7188e74f6acae5a989bdc959aa779f8b9f42faf
 - name: github.com/hashicorp/go-uuid
   version: 4f571afc59f3043a65f8fe6bf46d887b10a01d43
 - name: github.com/hashicorp/go-version
@@ -582,7 +581,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
+  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
   subpackages:
   - internal
   - internal/app_identity
@@ -1054,8 +1053,10 @@ imports:
   subpackages:
   - pkg/api/legacyscheme
   - pkg/apis/core
+- name: k8s.io/utils
+  version: 66066c83e385e385ccc3c964b44fd7dcd413d0ed
 - name: kmodules.xyz/client-go
-  version: 8e7590427751a4d2512094be0144780dc7ec860a
+  version: 3a84d13eee456bb00e4c75282aa44fdc0146137e
   subpackages:
   - admissionregistration/v1beta1
   - apiextensions/v1beta1
@@ -1112,7 +1113,7 @@ testImports:
 - name: github.com/appscode/pat
   version: 48ff78925b7955367d8a048fc2b5cec8efadf8d3
 - name: github.com/ncw/swift
-  version: ba19fe35e796969e50f19bd748a770ec5d191ece
+  version: a12c20e04ddb87207d41409a7afda9848aba8df2
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
