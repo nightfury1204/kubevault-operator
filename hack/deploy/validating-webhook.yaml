@@ -10,7 +10,7 @@ webhooks:
     service:
       namespace: default
       name: kubernetes
-      path: /apis/validators.kubevault.com/v1alpha1/vaultservervalidators
+      path: /apis/validators.kubevault.com/v1alpha1/vaultservers
     caBundle: ${KUBE_CA}
   rules:
   - operations:
@@ -37,7 +37,7 @@ webhooks:
     service:
       namespace: default
       name: kubernetes
-      path: /apis/validators.authorization.kubedb.com/v1alpha1/databaseaccessrequestvalidators
+      path: /apis/validators.authorization.kubedb.com/v1alpha1/databaseaccessrequests
     caBundle: ${KUBE_CA}
   rules:
   - operations:
@@ -64,7 +64,7 @@ webhooks:
     service:
       namespace: default
       name: kubernetes
-      path: /apis/validators.engine.kubevault.com/v1alpha1/awsaccesskeyrequestvalidators
+      path: /apis/validators.engine.kubevault.com/v1alpha1/awsaccesskeyrequests
     caBundle: ${KUBE_CA}
   rules:
   - operations:
@@ -83,7 +83,7 @@ webhooks:
     service:
       namespace: default
       name: kubernetes
-      path: /apis/validators.engine.kubevault.com/v1alpha1/gcpaccesskeyrequestvalidators
+      path: /apis/validators.engine.kubevault.com/v1alpha1/gcpaccesskeyrequests
     caBundle: ${KUBE_CA}
   rules:
   - operations:

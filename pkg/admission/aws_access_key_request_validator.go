@@ -28,9 +28,9 @@ func (v *AWSAccessKeyRequestValidator) Resource() (plural schema.GroupVersionRes
 	return schema.GroupVersionResource{
 			Group:    validatorGroupForEngine,
 			Version:  validatorVersionForEngine,
-			Resource: "awsaccesskeyrequestvalidators",
+			Resource: api.ResourceAWSAccessKeyRequests,
 		},
-		"awsaccesskeyrequestvalidator"
+		api.ResourceAWSAccessKeyRequest
 }
 
 func (v *AWSAccessKeyRequestValidator) Initialize(config *rest.Config, stopCh <-chan struct{}) error {

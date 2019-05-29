@@ -28,9 +28,9 @@ func (v *DatabaseAccessRequestValidator) Resource() (plural schema.GroupVersionR
 	return schema.GroupVersionResource{
 			Group:    validatorGroupForDB,
 			Version:  validatorVersionForDB,
-			Resource: "databaseaccessrequestvalidators",
+			Resource: api.ResourceDatabaseAccessRequests,
 		},
-		"databaseaccessrequestvalidator"
+		api.ResourceDatabaseAccessRequest
 }
 
 func (v *DatabaseAccessRequestValidator) Initialize(config *rest.Config, stopCh <-chan struct{}) error {
