@@ -138,6 +138,7 @@ func (f *Framework) DeployVault() (*appcat.AppReference, error) {
 		Namespace: f.namespace,
 	}
 
+	fmt.Println("Creating appbinding ...!")
 	err = f.CreateAppBinding(&appcat.AppBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      appRef.Name,

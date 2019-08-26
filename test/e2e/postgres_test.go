@@ -10,7 +10,6 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
 	"kubevault.dev/operator/pkg/vault"
 	"kubevault.dev/operator/test/e2e/framework"
@@ -70,7 +69,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsPostgresRoleCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is PostgresRole(%s/%s) created", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().PostgresRoles(namespace).Get(name, metav1.GetOptions{})
 				return err == nil
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is PostgresRole role created")
 		}
@@ -78,7 +77,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsPostgresRoleDeleted = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is PostgresRole(%s/%s) deleted", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().PostgresRoles(namespace).Get(name, metav1.GetOptions{})
 				return kerrors.IsNotFound(err)
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is PostgresRole role deleted")
 		}
@@ -86,7 +85,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsDatabaseAccessRequestCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) created", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				return err == nil
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is DatabaseAccessRequest created")
 		}
@@ -94,7 +93,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsDatabaseAccessRequestDeleted = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) deleted", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				return kerrors.IsNotFound(err)
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is DatabaseAccessRequest deleted")
 		}
@@ -102,7 +101,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsDatabaseAccessRequestApproved = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) apporved", namespace, name))
 			Eventually(func() bool {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				if err == nil {
 					return d.Status.Lease != nil
 				}
@@ -112,7 +111,7 @@ var _ = Describe("Postgres role and role binding", func() {
 		IsDatabaseAccessRequestDenied = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) denied", namespace, name))
 			Eventually(func() bool {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				if err == nil {
 					for _, c := range d.Status.Conditions {
 						if c.Type == api.AccessDenied {
@@ -137,10 +136,10 @@ var _ = Describe("Postgres role and role binding", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.PostgresRoleSpec{
-					AuthManagerRef: f.VaultAppRef,
-					DatabaseRef: &core.LocalObjectReference{
-						Name: f.PostgresAppRef.Name,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
+					DatabaseRef: f.PostgresAppRef,
 					CreationStatements: []string{
 						"CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';",
 						"GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";",
@@ -159,7 +158,7 @@ var _ = Describe("Postgres role and role binding", func() {
 			})
 
 			AfterEach(func() {
-				err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().PostgresRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete PostgresRole")
 
 				IsPostgresRoleDeleted(p.Name, p.Namespace)
@@ -167,7 +166,7 @@ var _ = Describe("Postgres role and role binding", func() {
 			})
 
 			It("should be successful", func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(pgRole.Namespace).Create(&p)
+				_, err := f.DBClient.EngineV1alpha1().PostgresRoles(pgRole.Namespace).Create(&p)
 				Expect(err).NotTo(HaveOccurred(), "Create PostgresRole")
 
 				IsVaultDatabaseConfigCreated(p.Spec.DatabaseRef.Name)
@@ -180,19 +179,18 @@ var _ = Describe("Postgres role and role binding", func() {
 
 			BeforeEach(func() {
 				p = pgRole
-				p.Spec.AuthManagerRef = &appcat.AppReference{
-					Name:      "invalid",
-					Namespace: f.Namespace(),
+				p.Spec.VaultRef = core.LocalObjectReference{
+					Name: "invalid",
 				}
 
-				_, err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(pgRole.Namespace).Create(&p)
+				_, err := f.DBClient.EngineV1alpha1().PostgresRoles(pgRole.Namespace).Create(&p)
 				Expect(err).NotTo(HaveOccurred(), "Create PostgresRole")
 
 				IsPostgresRoleCreated(p.Name, p.Namespace)
 			})
 
 			It("should be successful", func() {
-				err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().PostgresRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete PostgresRole")
 
 				IsPostgresRoleDeleted(p.Name, p.Namespace)
@@ -214,10 +212,10 @@ var _ = Describe("Postgres role and role binding", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.PostgresRoleSpec{
-					AuthManagerRef: f.VaultAppRef,
-					DatabaseRef: &core.LocalObjectReference{
-						Name: f.PostgresAppRef.Name,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
+					DatabaseRef: f.PostgresAppRef,
 					CreationStatements: []string{
 						"CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';",
 						"GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";",
@@ -233,7 +231,7 @@ var _ = Describe("Postgres role and role binding", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.DatabaseAccessRequestSpec{
-					RoleRef: api.RoleReference{
+					RoleRef: api.RoleRef{
 						Kind:      api.ResourceKindPostgresRole,
 						Name:      pRole.Name,
 						Namespace: pRole.Namespace,
@@ -251,7 +249,7 @@ var _ = Describe("Postgres role and role binding", func() {
 
 		Context("Create, Approve, Deny DatabaseAccessRequest", func() {
 			BeforeEach(func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().PostgresRoles(pRole.Namespace).Create(&pRole)
+				_, err := f.DBClient.EngineV1alpha1().PostgresRoles(pRole.Namespace).Create(&pRole)
 				Expect(err).NotTo(HaveOccurred(), "Create PostgresRole")
 
 				IsVaultDatabaseConfigCreated(pRole.Spec.DatabaseRef.Name)
@@ -259,12 +257,12 @@ var _ = Describe("Postgres role and role binding", func() {
 			})
 
 			AfterEach(func() {
-				err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Delete(dbAreq.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Delete(dbAreq.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete DatabaseAccessRequest")
 
 				IsDatabaseAccessRequestDeleted(dbAreq.Name, dbAreq.Namespace)
 
-				err = f.DBClient.AuthorizationV1alpha1().PostgresRoles(pRole.Namespace).Delete(pRole.Name, &metav1.DeleteOptions{})
+				err = f.DBClient.EngineV1alpha1().PostgresRoles(pRole.Namespace).Delete(pRole.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete PostgresRole")
 
 				IsPostgresRoleDeleted(pRole.Name, pRole.Namespace)
@@ -272,14 +270,14 @@ var _ = Describe("Postgres role and role binding", func() {
 			})
 
 			It("create should be successful", func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 			})
 
 			It("approve should be successful", func() {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 
@@ -297,7 +295,7 @@ var _ = Describe("Postgres role and role binding", func() {
 			})
 
 			It("deny should be successful", func() {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 

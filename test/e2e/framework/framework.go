@@ -2,6 +2,7 @@ package framework
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 	"time"
 
@@ -65,22 +66,25 @@ func New(kubeClient kubernetes.Interface, extClient cs.Interface, appc appcat_cs
 
 func (f *Framework) InitialSetup() error {
 	var err error
+	log.Println("-------------Deploy vault------------")
 	f.VaultAppRef, err = f.DeployVault()
 	if err != nil {
 		return err
 	}
 	fmt.Println(f.VaultAppRef)
-
+	log.Println("-------------Deploy Mongodb------------")
 	f.MongoAppRef, err = f.DeployMongodb()
 	if err != nil {
 		return err
 	}
 
+	log.Println("-------------Deploy Mysql------------")
 	f.MysqlAppRef, err = f.DeployMysql()
 	if err != nil {
 		return err
 	}
 
+	log.Println("-----------Deploy postgres------------")
 	f.PostgresAppRef, err = f.DeployPostgres()
 	if err != nil {
 		return err

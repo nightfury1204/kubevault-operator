@@ -12,7 +12,6 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
 	"kubevault.dev/operator/pkg/controller"
 	"kubevault.dev/operator/pkg/vault"
@@ -186,9 +185,8 @@ var _ = Describe("GCP Role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.GCPRoleSpec{
-					Ref: f.VaultAppRef,
-					Config: &api.GCPConfiguration{
-						CredentialSecret: gcpCredSecret,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
 					SecretType: "access_token",
 					Project:    "ackube",
@@ -236,9 +234,8 @@ var _ = Describe("GCP Role", func() {
 
 			BeforeEach(func() {
 				p = gcpRole
-				p.Spec.Ref = &appcat.AppReference{
-					Namespace: gcpRole.Namespace,
-					Name:      "invalid",
+				p.Spec.VaultRef = core.LocalObjectReference{
+					Name: "invalid",
 				}
 			})
 
@@ -297,9 +294,8 @@ var _ = Describe("GCP Role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.GCPRoleSpec{
-					Ref: f.VaultAppRef,
-					Config: &api.GCPConfiguration{
-						CredentialSecret: gcpCredSecret,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
 					SecretType: "access_token",
 					Project:    "ackube",

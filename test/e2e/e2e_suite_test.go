@@ -66,6 +66,7 @@ var _ = BeforeSuite(func() {
 	err = root.InitialSetup()
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Creating vault server version")
 	err = root.CreateVaultserverVersion()
 	Expect(err).NotTo(HaveOccurred())
 

@@ -10,7 +10,6 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
 	"kubevault.dev/operator/pkg/vault"
 	"kubevault.dev/operator/test/e2e/framework"
@@ -70,7 +69,7 @@ var _ = Describe("Mongodb role", func() {
 		IsMongoDBRoleCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is MongoDBRole(%s/%s) created", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().MongoDBRoles(namespace).Get(name, metav1.GetOptions{})
 				return err == nil
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is Mongodb role created")
 		}
@@ -78,7 +77,7 @@ var _ = Describe("Mongodb role", func() {
 		IsMongoDBRoleDeleted = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is MongoDBRole(%s/%s) deleted", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().MongoDBRoles(namespace).Get(name, metav1.GetOptions{})
 				return kerrors.IsNotFound(err)
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is MongoDBRole role deleted")
 		}
@@ -86,7 +85,7 @@ var _ = Describe("Mongodb role", func() {
 		IsDatabaseAccessRequestCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) created", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				return err == nil
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is DatabaseAccessRequest created")
 		}
@@ -94,7 +93,7 @@ var _ = Describe("Mongodb role", func() {
 		IsDatabaseAccessRequestDeleted = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) deleted", namespace, name))
 			Eventually(func() bool {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				return kerrors.IsNotFound(err)
 			}, timeOut, pollingInterval).Should(BeTrue(), "Is DatabaseAccessRequest deleted")
 		}
@@ -102,7 +101,7 @@ var _ = Describe("Mongodb role", func() {
 		IsDatabaseAccessRequestApproved = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) apporved", namespace, name))
 			Eventually(func() bool {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				if err == nil {
 					return d.Status.Lease != nil
 				}
@@ -112,7 +111,7 @@ var _ = Describe("Mongodb role", func() {
 		IsDatabaseAccessRequestDenied = func(name, namespace string) {
 			By(fmt.Sprintf("Checking Is DatabaseAccessRequest(%s/%s) denied", namespace, name))
 			Eventually(func() bool {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(namespace).Get(name, metav1.GetOptions{})
 				if err == nil {
 					for _, c := range d.Status.Conditions {
 						if c.Type == api.AccessDenied {
@@ -137,10 +136,11 @@ var _ = Describe("Mongodb role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.MongoDBRoleSpec{
-					AuthManagerRef: f.VaultAppRef,
-					DatabaseRef: &core.LocalObjectReference{
-						Name: f.MongoAppRef.Name,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
+
+					DatabaseRef: f.MongoAppRef,
 					CreationStatements: []string{
 						"{ \"db\": \"admin\", \"roles\": [{ \"role\": \"readWrite\" }, {\"role\": \"read\", \"db\": \"foo\"}] }",
 					},
@@ -158,7 +158,7 @@ var _ = Describe("Mongodb role", func() {
 			})
 
 			AfterEach(func() {
-				err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().MongoDBRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete MongoDBRole")
 
 				IsMongoDBRoleDeleted(p.Name, p.Namespace)
@@ -166,7 +166,7 @@ var _ = Describe("Mongodb role", func() {
 			})
 
 			It("should be successful", func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(mRole.Namespace).Create(&p)
+				_, err := f.DBClient.EngineV1alpha1().MongoDBRoles(mRole.Namespace).Create(&p)
 				Expect(err).NotTo(HaveOccurred(), "Create Mongodbole")
 
 				IsVaultDatabaseConfigCreated(p.Spec.DatabaseRef.Name)
@@ -179,19 +179,17 @@ var _ = Describe("Mongodb role", func() {
 
 			BeforeEach(func() {
 				p = mRole
-				p.Spec.AuthManagerRef = &appcat.AppReference{
-					Name:      "invalid",
-					Namespace: f.Namespace(),
+				p.Spec.VaultRef = core.LocalObjectReference{
+					Name: "invalid",
 				}
-
-				_, err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(mRole.Namespace).Create(&p)
+				_, err := f.DBClient.EngineV1alpha1().MongoDBRoles(mRole.Namespace).Create(&p)
 				Expect(err).NotTo(HaveOccurred(), "Create MongoDBRole")
 
 				IsMongoDBRoleCreated(p.Name, p.Namespace)
 			})
 
 			It("should be successful", func() {
-				err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().MongoDBRoles(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete MongoDBRole")
 
 				IsMongoDBRoleDeleted(p.Name, p.Namespace)
@@ -213,10 +211,10 @@ var _ = Describe("Mongodb role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.MongoDBRoleSpec{
-					AuthManagerRef: f.VaultAppRef,
-					DatabaseRef: &core.LocalObjectReference{
-						Name: f.MongoAppRef.Name,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
+					DatabaseRef: f.MongoAppRef,
 					CreationStatements: []string{
 						"{ \"db\": \"admin\", \"roles\": [{ \"role\": \"readWrite\" }, {\"role\": \"read\", \"db\": \"foo\"}] }",
 					},
@@ -231,7 +229,7 @@ var _ = Describe("Mongodb role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.DatabaseAccessRequestSpec{
-					RoleRef: api.RoleReference{
+					RoleRef: api.RoleRef{
 						Kind:      api.ResourceKindMongoDBRole,
 						Name:      mRole.Name,
 						Namespace: mRole.Namespace,
@@ -249,7 +247,7 @@ var _ = Describe("Mongodb role", func() {
 
 		Context("Create, Approve, Deny DatabaseAccessRequest", func() {
 			BeforeEach(func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().MongoDBRoles(mRole.Namespace).Create(&mRole)
+				_, err := f.DBClient.EngineV1alpha1().MongoDBRoles(mRole.Namespace).Create(&mRole)
 				Expect(err).NotTo(HaveOccurred(), "Create Mongodbole")
 
 				IsVaultDatabaseConfigCreated(mRole.Spec.DatabaseRef.Name)
@@ -257,12 +255,12 @@ var _ = Describe("Mongodb role", func() {
 			})
 
 			AfterEach(func() {
-				err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Delete(dbAreq.Name, &metav1.DeleteOptions{})
+				err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Delete(dbAreq.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete DatabaseAccessRequest")
 
 				IsDatabaseAccessRequestDeleted(dbAreq.Name, dbAreq.Namespace)
 
-				err = f.DBClient.AuthorizationV1alpha1().MongoDBRoles(mRole.Namespace).Delete(mRole.Name, &metav1.DeleteOptions{})
+				err = f.DBClient.EngineV1alpha1().MongoDBRoles(mRole.Namespace).Delete(mRole.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete MongoDBRole")
 
 				IsMongoDBRoleDeleted(mRole.Name, mRole.Namespace)
@@ -270,14 +268,14 @@ var _ = Describe("Mongodb role", func() {
 			})
 
 			It("create should be successful", func() {
-				_, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				_, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 			})
 
 			It("approve should be successful", func() {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 
@@ -295,7 +293,7 @@ var _ = Describe("Mongodb role", func() {
 			})
 
 			It("deny should be successful", func() {
-				d, err := f.DBClient.AuthorizationV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
+				d, err := f.DBClient.EngineV1alpha1().DatabaseAccessRequests(dbAreq.Namespace).Create(&dbAreq)
 				Expect(err).NotTo(HaveOccurred(), "Create DatabaseAccessRequest")
 				IsDatabaseAccessRequestCreated(dbAreq.Name, dbAreq.Namespace)
 

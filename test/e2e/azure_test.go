@@ -11,14 +11,13 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
 	"kubevault.dev/operator/pkg/controller"
 	"kubevault.dev/operator/pkg/vault"
 	"kubevault.dev/operator/test/e2e/framework"
 )
 
-var _ = FDescribe("Azure Secret Engine", func() {
+var _ = Describe("Azure Secret Engine", func() {
 	var f *framework.Invocation
 
 	BeforeEach(func() {
@@ -188,9 +187,8 @@ var _ = FDescribe("Azure Secret Engine", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.AzureRoleSpec{
-					Ref: f.VaultAppRef,
-					Config: &api.AzureConfiguration{
-						CredentialSecret: azureCredSecret,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
 					ApplicationObjectID: "c1cb042d-96d7-423a-8dba-243c2e5010d3",
 					TTL:                 "1h",
@@ -235,9 +233,8 @@ var _ = FDescribe("Azure Secret Engine", func() {
 
 			BeforeEach(func() {
 				p = azureRole
-				p.Spec.Ref = &appcat.AppReference{
-					Namespace: azureRole.Namespace,
-					Name:      "invalid",
+				p.Spec.VaultRef = core.LocalObjectReference{
+					Name: "invalid",
 				}
 			})
 
@@ -300,9 +297,8 @@ var _ = FDescribe("Azure Secret Engine", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.AzureRoleSpec{
-					Ref: f.VaultAppRef,
-					Config: &api.AzureConfiguration{
-						CredentialSecret: azureCredSecret,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
 					},
 					ApplicationObjectID: "c1cb042d-96d7-423a-8dba-243c2e5010d3",
 					TTL:                 "1h",

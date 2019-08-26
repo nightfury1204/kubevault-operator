@@ -11,7 +11,6 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
 	"kubevault.dev/operator/pkg/controller"
 	"kubevault.dev/operator/pkg/vault"
@@ -153,7 +152,9 @@ var _ = Describe("AWS role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.AWSRoleSpec{
-					Ref:            f.VaultAppRef,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
+					},
 					CredentialType: api.AWSCredentialIAMUser,
 					PolicyDocument: `
 						{
@@ -167,14 +168,6 @@ var _ = Describe("AWS role", func() {
 							  ]
 							}
 						`,
-					Config: &api.AWSConfiguration{
-						CredentialSecret: awsCredSecret,
-						Region:           "us-east-1",
-						LeaseConfig: &api.LeaseConfig{
-							LeaseMax: "1h",
-							Lease:    "1h",
-						},
-					},
 				},
 			}
 		})
@@ -213,9 +206,8 @@ var _ = Describe("AWS role", func() {
 
 			BeforeEach(func() {
 				p = awsRole
-				p.Spec.Ref = &appcat.AppReference{
-					Name:      "invalid",
-					Namespace: f.Namespace(),
+				p.Spec.VaultRef = core.LocalObjectReference{
+					Name: "invalid",
 				}
 
 				_, err := f.CSClient.EngineV1alpha1().AWSRoles(awsRole.Namespace).Create(&p)
@@ -261,7 +253,9 @@ var _ = Describe("AWS role", func() {
 					Namespace: f.Namespace(),
 				},
 				Spec: api.AWSRoleSpec{
-					Ref:            f.VaultAppRef,
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
+					},
 					CredentialType: api.AWSCredentialIAMUser,
 					PolicyDocument: `
 						{
@@ -275,14 +269,6 @@ var _ = Describe("AWS role", func() {
 							  ]
 							}
 						`,
-					Config: &api.AWSConfiguration{
-						CredentialSecret: awsCredSecret,
-						Region:           "us-east-1",
-						LeaseConfig: &api.LeaseConfig{
-							LeaseMax: "1h",
-							Lease:    "1h",
-						},
-					},
 				},
 			}
 
