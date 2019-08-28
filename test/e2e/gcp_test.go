@@ -12,88 +12,16 @@ import (
 	rbac "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
-	kvapi "kubevault.dev/operator/apis/kubevault/v1alpha1"
 	"kubevault.dev/operator/pkg/controller"
-	"kubevault.dev/operator/pkg/vault"
 	"kubevault.dev/operator/test/e2e/framework"
 )
 
 var _ = Describe("GCP Role", func() {
 
 	var f *framework.Invocation
-	var vServer *kvapi.VaultServer
-	const (
-		VaultKey = "vault-keys-23432"
-	)
 
 	var (
-		IsVaultServerCreated = func(name, namespace string) {
-			By(fmt.Sprintf("Checking whether VaultServer:(%s/%s) is created", namespace, name))
-			Eventually(func() bool {
-				_, err := f.CSClient.KubevaultV1alpha1().VaultServers(namespace).Get(name, metav1.GetOptions{})
-				return err == nil
-			}, timeOut, pollingInterval).Should(BeTrue(), "VaultServer is created")
-		}
-
-		IsVaultServerDeleted = func(name, namespace string) {
-			By(fmt.Sprintf("Checking whether VaultServer:(%s/%s) is created", namespace, name))
-			Eventually(func() bool {
-				_, err := f.CSClient.KubevaultV1alpha1().VaultServers(namespace).Get(name, metav1.GetOptions{})
-				return kerrors.IsNotFound(err)
-			}, timeOut, pollingInterval).Should(BeTrue(), "VaultServer is deleted")
-		}
-
-		IsAppBindingCreated = func(name, namespace string) {
-			By(fmt.Sprintf("Checking whether AppBinding:(%s/%s) is created", namespace, name))
-			Eventually(func() bool {
-				_, err := f.AppcatClient.AppBindings(namespace).Get(name, metav1.GetOptions{})
-				return err == nil
-			}, timeOut, pollingInterval).Should(BeTrue(), "AppBinding is created")
-		}
-
-		IsAppBindingDeleted = func(name, namespace string) {
-			By(fmt.Sprintf("Checking whether AppBinding:(%s/%s) is deleted", namespace, name))
-			Eventually(func() bool {
-				_, err := f.AppcatClient.AppBindings(namespace).Get(name, metav1.GetOptions{})
-				return kerrors.IsNotFound(err)
-			}, timeOut, pollingInterval).Should(BeTrue(), "AppBinding is deleted")
-		}
-
-		IsVaultGCPRoleCreated = func(name string) {
-			By("Checking whether vault gcp role is created")
-			cl, err := vault.NewClient(f.KubeClient, f.AppcatClient, &v1alpha1.AppReference{
-				Name:      vServer.Name,
-				Namespace: vServer.Namespace,
-			})
-
-			Expect(err).NotTo(HaveOccurred(), "To get vault client")
-
-			req := cl.NewRequest("GET", fmt.Sprintf("/v1/gcp/roleset/%s", name))
-			Eventually(func() bool {
-				_, err := cl.RawRequest(req)
-				return err == nil
-			}, timeOut, pollingInterval).Should(BeTrue(), "Vault gcp role is created")
-
-		}
-
-		IsVaultGCPRoleDeleted = func(name string) {
-			By("Checking whether vault gcp role is deleted")
-			cl, err := vault.NewClient(f.KubeClient, f.AppcatClient, &v1alpha1.AppReference{
-				Name:      vServer.Name,
-				Namespace: vServer.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred(), "To get vault client")
-
-			req := cl.NewRequest("GET", fmt.Sprintf("/v1/gcp/roleset/%s", name))
-			Eventually(func() bool {
-				_, err := cl.RawRequest(req)
-				return err != nil
-			}, timeOut, pollingInterval).Should(BeTrue(), "Vault gcp role is deleted")
-
-		}
-
 		IsSecretEngineCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking whether SecretEngine:(%s/%s) is created", namespace, name))
 			Eventually(func() bool {
@@ -102,7 +30,7 @@ var _ = Describe("GCP Role", func() {
 			}, timeOut, pollingInterval).Should(BeTrue(), "SecretEngine is created")
 		}
 		IsSecretEngineDeleted = func(name, namespace string) {
-			By(fmt.Sprintf("Checking whether SecretEngine:(%s/%s) is created", namespace, name))
+			By(fmt.Sprintf("Checking whether SecretEngine:(%s/%s) is deleted", namespace, name))
 			Eventually(func() bool {
 				_, err := f.CSClient.EngineV1alpha1().SecretEngines(namespace).Get(name, metav1.GetOptions{})
 				return kerrors.IsNotFound(err)
@@ -143,6 +71,17 @@ var _ = Describe("GCP Role", func() {
 				return false
 			}, timeOut, pollingInterval).Should(BeTrue(), "GCPRole status is succeeded")
 
+		}
+
+		IsGCPRoleFailed = func(name, namespace string) {
+			By(fmt.Sprintf("Checking whether GCPRole:(%s/%s) is failed", namespace, name))
+			Eventually(func() bool {
+				r, err := f.CSClient.EngineV1alpha1().GCPRoles(namespace).Get(name, metav1.GetOptions{})
+				if err == nil {
+					return r.Status.Phase != controller.GCPRolePhaseSuccess && len(r.Status.Conditions) != 0
+				}
+				return false
+			}, timeOut, pollingInterval).Should(BeTrue(), "GCPRole status is failed")
 		}
 		IsGCPAccessKeyRequestCreated = func(name, namespace string) {
 			By(fmt.Sprintf("Checking whether GCPAccessKeyRequest:(%s/%s) is created", namespace, name))
@@ -211,42 +150,19 @@ var _ = Describe("GCP Role", func() {
 
 	BeforeEach(func() {
 		f = root.Invoke()
-
-		vServer = f.VaultServerWithUnsealer(1,
-			kvapi.BackendStorageSpec{
-				Inmem: &kvapi.InmemSpec{},
-			},
-			kvapi.UnsealerSpec{
-				SecretShares:    4,
-				SecretThreshold: 2,
-				Mode: kvapi.ModeSpec{
-					KubernetesSecret: &kvapi.KubernetesSecretSpec{SecretName: VaultKey},
-				},
-			})
-		_, err := f.CreateVaultServer(vServer)
-		Expect(err).NotTo(HaveOccurred(), "Create VaultServer")
-
-		IsVaultServerCreated(vServer.Name, vServer.Namespace)
-		IsAppBindingCreated(vServer.Name, vServer.Namespace)
-
-		err = f.UpdateServiceAndAppBinding(vServer)
-		Expect(err).NotTo(HaveOccurred(), "Update VaultServer's svc and appBinding")
-		IsAppBindingCreated(vServer.Name, vServer.Namespace)
+		if framework.SelfHostedOperator {
+			Skip("Skipping GCPRole test because the operator is self-hosted")
+		}
+		// vault server creates appBinding, vault policy, and policy binding
+		time.Sleep(20 * time.Second)
 	})
 
 	AfterEach(func() {
-		err := f.DeleteVaultServerObj(vServer)
-		Expect(err).NotTo(HaveOccurred(), "Delete VaultServer")
-
-		err = f.DeleteAppBinding(vServer.Name, vServer.Namespace)
-		Expect(err).NotTo(HaveOccurred(), "Delete VaultServer appbinding")
-
-		IsVaultServerDeleted(vServer.Name, vServer.Namespace)
-		IsAppBindingDeleted(vServer.Name, vServer.Namespace)
 		time.Sleep(20 * time.Second)
 	})
 
 	FDescribe("GCPRole", func() {
+
 		var (
 			gcpCredentials core.Secret
 			gcpRole        api.GCPRole
@@ -285,7 +201,7 @@ var _ = Describe("GCP Role", func() {
 				},
 				Spec: api.GCPRoleSpec{
 					VaultRef: core.LocalObjectReference{
-						Name: vServer.Name,
+						Name: f.VaultAppRef.Name,
 					},
 					SecretType: "access_token",
 					Project:    "ackube",
@@ -303,7 +219,7 @@ var _ = Describe("GCP Role", func() {
 				},
 				Spec: api.SecretEngineSpec{
 					VaultRef: core.LocalObjectReference{
-						Name: vServer.Name,
+						Name: f.VaultAppRef.Name,
 					},
 					Path: "gcp",
 					SecretEngineConfiguration: api.SecretEngineConfiguration{
@@ -330,12 +246,13 @@ var _ = Describe("GCP Role", func() {
 			})
 
 			AfterEach(func() {
+				By("Deleting GCPRole...")
 				err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
 
-				IsVaultGCPRoleDeleted(p.RoleName())
 				IsGCPRoleDeleted(p.Name, p.Namespace)
 
+				By("Deleting SecretEngine...")
 				err = f.CSClient.EngineV1alpha1().SecretEngines(se.Namespace).Delete(se.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete Secret engine")
 
@@ -343,48 +260,49 @@ var _ = Describe("GCP Role", func() {
 			})
 
 			It("Should be successful", func() {
+				By("Creating SecretEngine...")
 				_, err := f.CSClient.EngineV1alpha1().SecretEngines(se.Namespace).Create(&se)
 				Expect(err).NotTo(HaveOccurred(), "Create SecretEngine")
 
 				IsSecretEngineCreated(se.Name, se.Namespace)
 				IsSecretEngineSucceeded(se.Name, se.Namespace)
 
+				By("Creating GCPRole...")
 				_, err = f.CSClient.EngineV1alpha1().GCPRoles(p.Namespace).Create(&p)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
 
 				IsGCPRoleCreated(p.Name, p.Namespace)
-				IsVaultGCPRoleCreated(p.RoleName())
 				IsGCPRoleSucceeded(p.Name, p.Namespace)
 			})
 
 		})
 
-		//Context("Create GCPRole with invalid vault AppReference", func() {
-		//	var p api.GCPRole
-		//
-		//	BeforeEach(func() {
-		//		p = gcpRole
-		//		p.Spec.VaultRef = core.LocalObjectReference{
-		//			Name: "invalid",
-		//		}
-		//	})
-		//
-		//	AfterEach(func() {
-		//		err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
-		//		Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
-		//
-		//		IsVaultGCPRoleDeleted(p.RoleName())
-		//		IsGCPRoleDeleted(p.Name, p.Namespace)
-		//	})
-		//
-		//	It("Should be successful", func() {
-		//		_, err := f.CSClient.EngineV1alpha1().GCPRoles(p.Namespace).Create(&p)
-		//		Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
-		//
-		//		IsGCPRoleCreated(p.Name, p.Namespace)
-		//		IsVaultGCPRoleDeleted(p.RoleName())
-		//	})
-		//})
+		Context("Create GCPRole without enabling secretEngine", func() {
+			var p api.GCPRole
+
+			BeforeEach(func() {
+				p = gcpRole
+			})
+
+			AfterEach(func() {
+				By("Deleting GCPRole...")
+				err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(p.Name, &metav1.DeleteOptions{})
+				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
+
+				IsGCPRoleDeleted(p.Name, p.Namespace)
+
+			})
+
+			It("Should be failed making GCPRole", func() {
+
+				By("Creating GCPRole...")
+				_, err := f.CSClient.EngineV1alpha1().GCPRoles(p.Namespace).Create(&p)
+				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
+
+				IsGCPRoleCreated(p.Name, p.Namespace)
+				IsGCPRoleFailed(p.Name, p.Namespace)
+			})
+		})
 
 	})
 
@@ -467,7 +385,6 @@ var _ = Describe("GCP Role", func() {
 				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
 
-				IsVaultGCPRoleCreated(r.RoleName())
 				IsGCPRoleSucceeded(r.Name, r.Namespace)
 			})
 
@@ -481,7 +398,6 @@ var _ = Describe("GCP Role", func() {
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
 
 				IsGCPRoleDeleted(gcpRole.Name, gcpRole.Namespace)
-				IsVaultGCPRoleDeleted(gcpRole.RoleName())
 			})
 
 			It("Should be successful, Create GCPAccessKeyRequest", func() {
@@ -545,7 +461,6 @@ var _ = Describe("GCP Role", func() {
 				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
 
-				IsVaultGCPRoleCreated(r.RoleName())
 				IsGCPRoleSucceeded(r.Name, r.Namespace)
 
 			})
@@ -561,7 +476,6 @@ var _ = Describe("GCP Role", func() {
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
 
 				IsGCPRoleDeleted(gcpRole.Name, gcpRole.Namespace)
-				IsVaultGCPRoleDeleted(gcpRole.RoleName())
 			})
 
 			It("Should be successful, Create Access Key Secret", func() {
@@ -594,7 +508,6 @@ var _ = Describe("GCP Role", func() {
 				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
 
-				IsVaultGCPRoleCreated(r.RoleName())
 				IsGCPRoleSucceeded(r.Name, r.Namespace)
 
 			})
@@ -610,7 +523,6 @@ var _ = Describe("GCP Role", func() {
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
 
 				IsGCPRoleDeleted(gcpRole.Name, gcpRole.Namespace)
-				IsVaultGCPRoleDeleted(gcpRole.RoleName())
 			})
 
 			It("Should be successful, Create Access Key Secret", func() {
