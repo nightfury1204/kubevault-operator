@@ -56,10 +56,10 @@ var _ = BeforeSuite(func() {
 		// let's API server be warmed up
 		time.Sleep(time.Second * 5)
 	} else {
-		ctrl, err := ctrlConfig.New()
-		Expect(err).NotTo(HaveOccurred())
-		// Now let's start the controller
-		go ctrl.RunInformers(nil)
+		//ctrl, err := ctrlConfig.New()
+		//Expect(err).NotTo(HaveOccurred())
+		//// Now let's start the controller
+		//go ctrl.RunInformers(nil)
 	}
 
 	By("Deploying vault, mongodb, mysql, postgres...")
