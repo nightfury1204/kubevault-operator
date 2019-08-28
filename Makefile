@@ -84,7 +84,8 @@ endif
 BUILD_DIRS  := bin/$(OS)_$(ARCH)     \
                .go/bin/$(OS)_$(ARCH) \
                .go/cache \
-               $(HOME)/.credentials
+               $(HOME)/.credentials \
+               $(HOME)/.kube
 
 DOCKERFILE_PROD  = Dockerfile.in
 DOCKERFILE_DBG   = Dockerfile.dbg
