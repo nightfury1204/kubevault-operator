@@ -83,7 +83,8 @@ endif
 # Directories that we need created to build/test.
 BUILD_DIRS  := bin/$(OS)_$(ARCH)     \
                .go/bin/$(OS)_$(ARCH) \
-               .go/cache
+               .go/cache \
+               $(HOME)/.credentials
 
 DOCKERFILE_PROD  = Dockerfile.in
 DOCKERFILE_DBG   = Dockerfile.dbg
