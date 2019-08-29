@@ -18435,7 +18435,7 @@ func schema_operator_apis_engine_v1alpha1_RoleRef(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				Required: []string{"apiGroup", "kind", "name", "namespace"},
+				Required: []string{"name", "namespace"},
 			},
 		},
 	}
