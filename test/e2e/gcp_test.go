@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	core "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
+	v1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	api "kubevault.dev/operator/apis/engine/v1alpha1"
@@ -150,8 +150,8 @@ var _ = Describe("GCP Role", func() {
 
 	BeforeEach(func() {
 		f = root.Invoke()
-		if framework.SelfHostedOperator {
-			Skip("Skipping GCPRole test because the operator is self-hosted")
+		if !framework.SelfHostedOperator {
+			Skip("Skipping GCPRole test because the operator is running in local machine")
 		}
 		// vault server creates appBinding, vault policy, and policy binding
 		time.Sleep(20 * time.Second)
@@ -161,7 +161,7 @@ var _ = Describe("GCP Role", func() {
 		time.Sleep(20 * time.Second)
 	})
 
-	FDescribe("GCPRole", func() {
+	Describe("GCPRole", func() {
 
 		var (
 			gcpCredentials core.Secret
@@ -307,18 +307,23 @@ var _ = Describe("GCP Role", func() {
 	})
 
 	Describe("GCPAccessKeyRequest", func() {
+
 		var (
 			gcpCredentials core.Secret
 			gcpRole        api.GCPRole
-			gcpAKReq       api.GCPAccessKeyRequest
+			gcpSE          api.SecretEngine
+			gcpAKR         api.GCPAccessKeyRequest
 		)
+
 		const (
-			gcpCredSecret = "gcp-cred-2343"
-			gcpRoleName   = "gcp-token-roleset-23432"
-			gcpAKReqName  = "gcp-akr-324432"
+			gcpCredSecret   = "gcp-cred-3224"
+			gcpRoleName     = "my-gcp-roleset-4325"
+			gcpSecretEngine = "my-gcp-secretengine-3423423"
+			gcpAKRName      = "my-gcp-token-2345"
 		)
 
 		BeforeEach(func() {
+
 			credentialAddr := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 			jsonBytes, err := ioutil.ReadFile(credentialAddr)
 			Expect(err).NotTo(HaveOccurred(), "Parse gcp credentials")
@@ -335,6 +340,27 @@ var _ = Describe("GCP Role", func() {
 			}
 			_, err = f.KubeClient.CoreV1().Secrets(f.Namespace()).Create(&gcpCredentials)
 			Expect(err).NotTo(HaveOccurred(), "Create gcp credentials secret")
+
+			gcpSE = api.SecretEngine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      gcpSecretEngine,
+					Namespace: f.Namespace(),
+				},
+				Spec: api.SecretEngineSpec{
+					VaultRef: core.LocalObjectReference{
+						Name: f.VaultAppRef.Name,
+					},
+					Path: "gcp",
+					SecretEngineConfiguration: api.SecretEngineConfiguration{
+						GCP: &api.GCPConfiguration{
+							CredentialSecret: gcpCredSecret,
+						},
+					},
+				},
+			}
+			_, err = f.CSClient.EngineV1alpha1().SecretEngines(gcpSE.Namespace).Create(&gcpSE)
+			Expect(err).NotTo(HaveOccurred(), "Create gcp SecretEngine")
+			IsSecretEngineCreated(gcpSE.Name, gcpSE.Namespace)
 
 			gcpRole = api.GCPRole{
 				ObjectMeta: metav1.ObjectMeta{
@@ -354,9 +380,9 @@ var _ = Describe("GCP Role", func() {
 				},
 			}
 
-			gcpAKReq = api.GCPAccessKeyRequest{
+			gcpAKR = api.GCPAccessKeyRequest{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      gcpAKReqName,
+					Name:      gcpAKRName,
 					Namespace: f.Namespace(),
 				},
 				Spec: api.GCPAccessKeyRequestSpec{
@@ -364,11 +390,11 @@ var _ = Describe("GCP Role", func() {
 						Name:      gcpRoleName,
 						Namespace: f.Namespace(),
 					},
-					Subjects: []rbac.Subject{
+					Subjects: []v1.Subject{
 						{
-							Kind:      rbac.ServiceAccountKind,
-							Name:      "sa-5576",
-							Namespace: f.Namespace(),
+							Kind:      "ServiceAccount",
+							Name:      "sa",
+							Namespace: "demo",
 						},
 					},
 				},
@@ -378,41 +404,47 @@ var _ = Describe("GCP Role", func() {
 		AfterEach(func() {
 			err := f.KubeClient.CoreV1().Secrets(f.Namespace()).Delete(gcpCredSecret, &metav1.DeleteOptions{})
 			Expect(err).NotTo(HaveOccurred(), "Delete gcp credentials secret")
+
+			err = f.CSClient.EngineV1alpha1().SecretEngines(gcpSE.Namespace).Delete(gcpSE.Name, &metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred(), "Delete gcp SecretEngine")
+			IsSecretEngineDeleted(gcpSE.Name, gcpSE.Namespace)
 		})
 
 		Context("Create, Approve, Deny GCPAccessKeyRequests", func() {
 			BeforeEach(func() {
-				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
-				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
+				_, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
+				Expect(err).NotTo(HaveOccurred(), "Create gcpRole")
 
-				IsGCPRoleSucceeded(r.Name, r.Namespace)
+				IsGCPRoleCreated(gcpRole.Name, gcpRole.Namespace)
+				IsGCPRoleSucceeded(gcpRole.Name, gcpRole.Namespace)
+
 			})
 
 			AfterEach(func() {
-				err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Delete(gcpAKReq.Name, &metav1.DeleteOptions{})
+				err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Delete(gcpAKR.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPAccessKeyRequest")
-
-				IsGCPAccessKeyRequestDeleted(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestDeleted(gcpAKR.Name, gcpAKR.Namespace)
 
 				err = f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(gcpRole.Name, &metav1.DeleteOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
-
+				Expect(err).NotTo(HaveOccurred(), "Delete gcpRole")
 				IsGCPRoleDeleted(gcpRole.Name, gcpRole.Namespace)
 			})
 
 			It("Should be successful, Create GCPAccessKeyRequest", func() {
-				_, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Create(&gcpAKReq)
+				_, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Create(&gcpAKR)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPAccessKeyRequest")
 
-				IsGCPAccessKeyRequestCreated(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestCreated(gcpAKR.Name, gcpAKR.Namespace)
 			})
 
 			It("Should be successful, Condition approved", func() {
-				r, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Create(&gcpAKReq)
+				By("Creating gcpAccessKeyRequest...")
+				r, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Create(&gcpAKR)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPAccessKeyRequest")
 
-				IsGCPAccessKeyRequestCreated(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestCreated(gcpAKR.Name, gcpAKR.Namespace)
 
+				By("Updating GCP AccessKeyRequest status...")
 				err = f.UpdateGCPAccessKeyRequestStatus(&api.GCPAccessKeyRequestStatus{
 					Conditions: []api.GCPAccessKeyRequestCondition{
 						{
@@ -422,16 +454,17 @@ var _ = Describe("GCP Role", func() {
 					},
 				}, r)
 				Expect(err).NotTo(HaveOccurred(), "Update conditions: Approved")
-
-				IsGCPAKRConditionApproved(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAKRConditionApproved(gcpAKR.Name, gcpAKR.Namespace)
 			})
 
 			It("Should be successful, Condition denied", func() {
-				r, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Create(&gcpAKReq)
+				By("Creating gcpAccessKeyRequest...")
+				r, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Create(&gcpAKR)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPAccessKeyRequest")
 
-				IsGCPAccessKeyRequestCreated(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestCreated(gcpAKR.Name, gcpAKR.Namespace)
 
+				By("Updating GCP AccessKeyRequest status...")
 				err = f.UpdateGCPAccessKeyRequestStatus(&api.GCPAccessKeyRequestStatus{
 					Conditions: []api.GCPAccessKeyRequestCondition{
 						{
@@ -442,7 +475,7 @@ var _ = Describe("GCP Role", func() {
 				}, r)
 				Expect(err).NotTo(HaveOccurred(), "Update conditions: Denied")
 
-				IsGCPAKRConditionDenied(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAKRConditionDenied(gcpAKR.Name, gcpAKR.Namespace)
 			})
 		})
 
@@ -452,12 +485,8 @@ var _ = Describe("GCP Role", func() {
 			)
 
 			BeforeEach(func() {
-				gcpRole.Spec.SecretType = api.GCPSecretAccessToken
-				gcpAKReq.Status.Conditions = []api.GCPAccessKeyRequestCondition{
-					{
-						Type: api.AccessApproved,
-					},
-				}
+
+				By("Creating gcpRole...")
 				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
 
@@ -466,12 +495,14 @@ var _ = Describe("GCP Role", func() {
 			})
 
 			AfterEach(func() {
-				err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Delete(gcpAKReq.Name, &metav1.DeleteOptions{})
+				By("Deleting gcp accesskeyrequest...")
+				err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Delete(gcpAKR.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPAccessKeyRequest")
 
-				IsGCPAccessKeyRequestDeleted(gcpAKReq.Name, gcpAKReq.Namespace)
-				IsGCPAccessKeySecretDeleted(secretName, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestDeleted(gcpAKR.Name, gcpAKR.Namespace)
+				IsGCPAccessKeySecretDeleted(secretName, gcpAKR.Namespace)
 
+				By("Deleting gcpRole...")
 				err = f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(gcpRole.Name, &metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
 
@@ -479,65 +510,34 @@ var _ = Describe("GCP Role", func() {
 			})
 
 			It("Should be successful, Create Access Key Secret", func() {
-				_, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Create(&gcpAKReq)
+				By("Creating gcp accessKeyRequest...")
+				r, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Create(&gcpAKR)
 				Expect(err).NotTo(HaveOccurred(), "Create GCPAccessKeyRequest")
 
-				IsGCPAccessKeyRequestCreated(gcpAKReq.Name, gcpAKReq.Namespace)
-				IsGCPAccessKeySecretCreated(gcpAKReq.Name, gcpAKReq.Namespace)
+				IsGCPAccessKeyRequestCreated(gcpAKR.Name, gcpAKR.Namespace)
 
-				d, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Get(gcpAKReq.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Get GCPAccessKeyRequest")
-				if d.Status.Secret != nil {
-					secretName = d.Status.Secret.Name
-				}
-			})
-		})
-
-		Context("Create secret where SecretType is service_account_key", func() {
-			var (
-				secretName string
-			)
-
-			BeforeEach(func() {
-				gcpRole.Spec.SecretType = api.GCPSecretServiceAccountKey
-				gcpAKReq.Status.Conditions = []api.GCPAccessKeyRequestCondition{
-					{
-						Type: api.AccessApproved,
+				By("Updating GCP AccessKeyRequest status...")
+				err = f.UpdateGCPAccessKeyRequestStatus(&api.GCPAccessKeyRequestStatus{
+					Conditions: []api.GCPAccessKeyRequestCondition{
+						{
+							Type:           api.AccessApproved,
+							LastUpdateTime: metav1.Now(),
+						},
 					},
-				}
-				r, err := f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Create(&gcpRole)
-				Expect(err).NotTo(HaveOccurred(), "Create GCPRole")
+				}, r)
 
-				IsGCPRoleSucceeded(r.Name, r.Namespace)
+				Expect(err).NotTo(HaveOccurred(), "Update conditions: Approved")
+				IsGCPAKRConditionApproved(gcpAKR.Name, gcpAKR.Namespace)
 
-			})
+				IsGCPAccessKeySecretCreated(gcpAKR.Name, gcpAKR.Namespace)
 
-			AfterEach(func() {
-				err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Delete(gcpAKReq.Name, &metav1.DeleteOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Delete GCPAccessKeyRequest")
-
-				IsGCPAccessKeyRequestDeleted(gcpAKReq.Name, gcpAKReq.Namespace)
-				IsGCPAccessKeySecretDeleted(secretName, gcpAKReq.Namespace)
-
-				err = f.CSClient.EngineV1alpha1().GCPRoles(gcpRole.Namespace).Delete(gcpRole.Name, &metav1.DeleteOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Delete GCPRole")
-
-				IsGCPRoleDeleted(gcpRole.Name, gcpRole.Namespace)
-			})
-
-			It("Should be successful, Create Access Key Secret", func() {
-				_, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Create(&gcpAKReq)
-				Expect(err).NotTo(HaveOccurred(), "Create GCPAccessKeyRequest")
-
-				IsGCPAccessKeyRequestCreated(gcpAKReq.Name, gcpAKReq.Namespace)
-				IsGCPAccessKeySecretCreated(gcpAKReq.Name, gcpAKReq.Namespace)
-
-				d, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKReq.Namespace).Get(gcpAKReq.Name, metav1.GetOptions{})
+				d, err := f.CSClient.EngineV1alpha1().GCPAccessKeyRequests(gcpAKR.Namespace).Get(gcpAKR.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred(), "Get GCPAccessKeyRequest")
 				if d.Status.Secret != nil {
 					secretName = d.Status.Secret.Name
 				}
 			})
 		})
+
 	})
 })

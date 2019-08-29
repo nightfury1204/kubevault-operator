@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevault.dev/operator/apis/kubevault/v1alpha1"
-
 	"github.com/appscode/go/crypto/rand"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -16,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	appcat "kmodules.xyz/custom-resources/apis/appcatalog/v1alpha1"
+	"kubevault.dev/operator/apis/kubevault/v1alpha1"
 )
 
 var (

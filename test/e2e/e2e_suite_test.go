@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 
 		// let's API server be warmed up
 		time.Sleep(time.Second * 5)
-	} else if framework.SelfHostedOperator {
+	} else if !framework.SelfHostedOperator {
 		ctrl, err := ctrlConfig.New()
 		Expect(err).NotTo(HaveOccurred())
 		// Now let's start the controller

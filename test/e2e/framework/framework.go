@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	SelfHostedOperator = true
+	SelfHostedOperator = false
 )
 
 type Framework struct {
@@ -69,7 +69,7 @@ func New(kubeClient kubernetes.Interface, extClient cs.Interface, appc appcat_cs
 
 func (f *Framework) InitialSetup() error {
 	var err error
-	if SelfHostedOperator {
+	if !SelfHostedOperator {
 		log.Println("Deploying vault...")
 		f.VaultAppRef, err = f.DeployVault()
 		if err != nil {
@@ -105,7 +105,7 @@ func (f *Framework) InitialSetup() error {
 
 func (f *Framework) Cleanup() error {
 	errs := []error{}
-	if SelfHostedOperator {
+	if !SelfHostedOperator {
 		err := f.DeleteVault()
 		if err != nil {
 			errs = append(errs, err)
