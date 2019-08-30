@@ -59,7 +59,7 @@ func NewDatabaseRoleForPostgres(kClient kubernetes.Interface, appClient appcat_c
 
 func NewDatabaseRoleForMysql(kClient kubernetes.Interface, appClient appcat_cs.AppcatalogV1alpha1Interface, role *api.MySQLRole) (DatabaseRoleInterface, error) {
 	vAppRef := &appcat.AppReference{
-		Namespace: role.Name,
+		Namespace: role.Namespace,
 		Name:      role.Spec.VaultRef.Name,
 	}
 	vClient, err := vault.NewClient(kClient, appClient, vAppRef)
@@ -87,7 +87,7 @@ func NewDatabaseRoleForMysql(kClient kubernetes.Interface, appClient appcat_cs.A
 
 func NewDatabaseRoleForMongodb(kClient kubernetes.Interface, appClient appcat_cs.AppcatalogV1alpha1Interface, role *api.MongoDBRole) (DatabaseRoleInterface, error) {
 	vAppRef := &appcat.AppReference{
-		Namespace: role.Name,
+		Namespace: role.Namespace,
 		Name:      role.Spec.VaultRef.Name,
 	}
 	vClient, err := vault.NewClient(kClient, appClient, vAppRef)
