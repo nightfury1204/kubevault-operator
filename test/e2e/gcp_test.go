@@ -17,7 +17,7 @@ import (
 	"kubevault.dev/operator/test/e2e/framework"
 )
 
-var _ = Describe("GCP Role", func() {
+var _ = Describe("GCP Secret Engine", func() {
 
 	var f *framework.Invocation
 
@@ -151,10 +151,8 @@ var _ = Describe("GCP Role", func() {
 	BeforeEach(func() {
 		f = root.Invoke()
 		if !framework.SelfHostedOperator {
-			Skip("Skipping GCPRole test because the operator is running in local machine")
+			Skip("Skipping GCP secret engine tests because the operator isn't running inside cluster")
 		}
-		// vault server creates appBinding, vault policy, and policy binding
-		time.Sleep(20 * time.Second)
 	})
 
 	AfterEach(func() {

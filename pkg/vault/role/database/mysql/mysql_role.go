@@ -3,6 +3,7 @@ package mysql
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,8 @@ func (m *MySQLRole) CreateRole() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
+
+	spew.Dump(payload)
 
 	_, err = m.vaultClient.RawRequest(req)
 	if err != nil {

@@ -58,6 +58,9 @@ func (f *Framework) DeployVaultServer() (*appcat.AppReference, error) {
 		return nil, err
 	}
 
+	// Let vault server create appBinding, policy and policy binding
+	time.Sleep(20 * time.Second)
+
 	return &appcat.AppReference{
 		Name:      vServer.Name,
 		Namespace: vServer.Namespace,
