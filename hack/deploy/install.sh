@@ -111,6 +111,8 @@ export VAULT_OPERATOR_BYPASS_VALIDATING_WEBHOOK_XRAY=false
 export VAULT_OPERATOR_USE_KUBEAPISERVER_FQDN_FOR_AKS=true
 export VAULT_OPERATOR_CLUSTER_NAME=
 export VAULT_OPERATOR_PRIORITY_CLASS=system-cluster-critical
+export METRICS_EXPORTER_API_URL=
+export METRICS_EXPORTER_LICENSE=
 
 export APPSCODE_ENV=${APPSCODE_ENV:-prod}
 export SCRIPT_LOCATION="curl -fsSL https://raw.githubusercontent.com/kubevault/operator/0.2.0/"
