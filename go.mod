@@ -45,7 +45,7 @@ require (
 	github.com/prometheus/procfs v0.0.4 // indirect
 	github.com/prometheus/prometheus v2.10.0+incompatible
 	github.com/ryanuber/go-glob v1.0.0 // indirect
-	github.com/searchlight/prometheus-metrics-exporter v0.0.0-20190903094544-a144592b9a25
+	github.com/searchlight/prometheus-metrics-exporter v0.0.0-20190910061823-f0df5eb796d6
 	github.com/spf13/afero v1.2.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
